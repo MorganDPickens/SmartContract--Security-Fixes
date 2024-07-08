@@ -1,0 +1,92 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+contract SignatureAttackExample {
+    // This contract demonstrates the concept of signature replay attacks and how to mitigate them.
+
+    // Mapping to store balances of users
+    mapping(address => uint256) public balances;
+
+    // Mapping to store nonces for users to prevent replay attacks
+    mapping(address => uint256) public nonces;
+
+    // Event to log deposits
+    event Deposit(address indexed user, uint256 amount);
+
+    // Event to log withdrawals
+    event Withdraw(address indexed user, uint256 amount);
+
+    // Function to deposit Ether into the contract
+    function deposit() external payable {
+        // Update the balance of the sender
+        balances[msg.sender] += msg.value;
+        emit Deposit(msg.sender, msg.value);
+    }
+
+    // Function to withdraw Ether from the contract using a signed message
+    // This function is vulnerable to signature replay attacks
+    function withdraw(uint256 amount, uint8 v, bytes32 r, bytes32 s) external {
+        // Create the hash of the message to be signed
+        bytes32 messageHash = keccak256(abi.encodePacked(msg.sender, amount));
+
+        // Recover the signer address from the signature
+        address signer = ecrecover(messageHash, v, r, s);
+
+        // Check if the signer is the sender
+        require(signer == msg.sender, "Invalid signature");
+
+        // Check if the user has enough balance
+        require(balances[msg.sender] >= amount, "Insufficient balance");
+
+        // Update the balance before transferring to prevent reentrancy attacks
+        balances[msg.sender] -= amount;
+
+        // Transfer the amount to the sender
+        (bool success, ) = msg.sender.call{value: amount}("");
+        require(success, "Transfer failed");
+
+        emit Withdraw(msg.sender, amount);
+    }
+
+    // Function to fix signature replay attacks using nonce values
+    function safeWithdraw(uint256 amount, uint8 v, bytes32 r, bytes32 s) external {
+        // Get the current nonce for the sender
+        uint256 currentNonce = nonces[msg.sender];
+
+        // Create the hash of the message to be signed, including the nonce
+        bytes32 messageHash = keccak256(abi.encodePacked(msg.sender, amount, currentNonce));
+
+        // Recover the signer address from the signature
+        address signer = ecrecover(messageHash, v, r, s);
+
+        // Check if the signer is the sender
+        require(signer == msg.sender, "Invalid signature");
+
+        // Check if the user has enough balance
+        require(balances[msg.sender] >= amount, "Insufficient balance");
+
+        // Increment the nonce to prevent replay attacks
+        nonces[msg.sender] += 1;
+
+        // Update the balance before transferring to prevent reentrancy attacks
+        balances[msg.sender] -= amount;
+
+        // Transfer the amount to the sender
+        (bool success, ) = msg.sender.call{value: amount}("");
+        require(success, "Transfer failed");
+
+        emit Withdraw(msg.sender, amount);
+    }
+
+    // Fallback function to accept Ether
+    receive() external payable {}
+}
+//Signature Replay Attacks:
+
+//A signature replay attack occurs when a signed message is used multiple times to perform an action. In this example, an attacker could reuse the same signature to withdraw funds multiple times.
+//In the withdraw function, the signature does not include any mechanism to prevent reuse, making it vulnerable to replay attacks.
+//Fix:
+
+//The safeWithdraw function mitigates signature replay attacks by including a nonce in the signed message. The nonce ensures that each signature is unique and can only be used once.
+//The nonce is stored in the nonces mapping and is incremented after each successful withdrawal.
+//The signed message includes the nonce value along with the sender's address and the withdrawal amount, ensuring that the signature is unique and cannot be reused.
