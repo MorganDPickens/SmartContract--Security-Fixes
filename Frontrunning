@@ -1,0 +1,80 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+contract FrontRunningMitigation {
+    // This contract demonstrates how to mitigate front-running attacks using a commit-reveal scheme.
+
+    // Mapping to store committed hashes
+    mapping(address => bytes32) public commitments;
+
+    // Mapping to store balances of users
+    mapping(address => uint256) public balances;
+
+    // Event to log deposits
+    event Deposit(address indexed user, uint256 amount);
+
+    // Event to log commitment
+    event Commit(address indexed user, bytes32 commitment);
+
+    // Event to log withdrawals
+    event Withdraw(address indexed user, uint256 amount);
+
+    // Function to deposit Ether into the contract
+    function deposit() external payable {
+        // Update the balance of the sender
+        balances[msg.sender] += msg.value;
+        emit Deposit(msg.sender, msg.value);
+    }
+
+    // Function to commit a hash of the intended withdrawal
+    function commitWithdrawal(bytes32 commitment) external {
+        // Store the commitment
+        commitments[msg.sender] = commitment;
+        emit Commit(msg.sender, commitment);
+    }
+
+    // Function to reveal the commitment and withdraw Ether
+    function revealWithdrawal(uint256 amount, bytes32 nonce) external {
+        // Calculate the hash of the amount and nonce
+        bytes32 commitment = keccak256(abi.encodePacked(amount, nonce));
+
+        // Check if the calculated commitment matches the stored commitment
+        require(commitments[msg.sender] == commitment, "Invalid commitment");
+
+        // Check if the user has enough balance
+        require(balances[msg.sender] >= amount, "Insufficient balance");
+
+        // Clear the commitment
+        commitments[msg.sender] = 0;
+
+        // Update the balance before transferring to prevent reentrancy attacks
+        balances[msg.sender] -= amount;
+
+        // Transfer the amount to the sender
+        (bool success, ) = msg.sender.call{value: amount}("");
+        require(success, "Transfer failed");
+
+        emit Withdraw(msg.sender, amount);
+    }
+
+    // Fallback function to accept Ether
+    receive() external payable {}
+}
+//Explanation:
+//Front-Running:
+
+//Front-running occurs when an attacker observes a pending transaction and submits their own transaction with a higher gas price to get it processed first. This can manipulate the outcome of the original transaction.
+//This contract uses a commit-reveal scheme to mitigate front-running attacks.
+//Commit-Reveal Scheme:
+
+//Commit Phase: Users commit to a withdrawal by submitting a hash of the withdrawal amount and a secret nonce. This commitment is stored on the blockchain.
+//Reveal Phase: Users reveal the amount and nonce, and the contract checks if the hash of these values matches the stored commitment. If it matches, the withdrawal is processed.
+//Security Measures:
+
+//Commitment Hash: The commitment hash ensures that the withdrawal amount and nonce cannot be determined by observing the commitment transaction.
+//Balance Updates: The user's balance is updated before any transfers to prevent reentrancy attacks.
+//Clearing Commitments: Commitments are cleared after being revealed to prevent reuse.
+//Steps:
+
+//The commitWithdrawal function allows users to commit a hash of their intended withdrawal amount and a nonce.
+//The revealWithdrawal function allows users to reveal the amount and nonce, and if the hash matches the stored commitment, the withdrawal is processed.
