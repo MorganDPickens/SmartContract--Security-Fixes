@@ -1,0 +1,82 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+contract OverflowExample {
+    // This contract demonstrates the concept of overflow and how to mitigate it.
+
+    // Mapping to store balances of users
+    mapping(address => uint256) public balances;
+
+    // Event to log deposits
+    event Deposit(address indexed user, uint256 amount);
+
+    // Event to log withdrawals
+    event Withdraw(address indexed user, uint256 amount);
+
+    // Function to deposit Ether into the contract
+    // This function is vulnerable to overflow
+    function deposit() external payable {
+        // Check for overflow
+        // In earlier versions of Solidity, this required manual checks
+        // uint256 newBalance = balances[msg.sender] + msg.value;
+        // require(newBalance >= balances[msg.sender], "Overflow detected");
+
+        // Update the balance of the sender
+        balances[msg.sender] += msg.value;
+        emit Deposit(msg.sender, msg.value);
+    }
+
+    // Function to withdraw Ether from the contract
+    // This function is also vulnerable to overflow
+    function withdraw(uint256 amount) external {
+        // Check if the user has enough balance
+        require(balances[msg.sender] >= amount, "Insufficient balance");
+
+        // Update the balance before transferring to prevent reentrancy attacks
+        balances[msg.sender] -= amount;
+
+        // Transfer the amount to the sender
+        (bool success, ) = msg.sender.call{value: amount}("");
+        require(success, "Transfer failed");
+
+        emit Withdraw(msg.sender, amount);
+    }
+
+    // Function to fix overflow using SafeMath
+    // SafeMath is a library that provides arithmetic functions with overflow checks
+    function safeDeposit() external payable {
+        // Update the balance of the sender using SafeMath
+        // In Solidity 0.8.0 and later, overflow checks are built-in
+        // balances[msg.sender] = balances[msg.sender].add(msg.value);
+
+        // Update the balance using Solidity's built-in overflow checks
+        balances[msg.sender] += msg.value;
+        emit Deposit(msg.sender, msg.value);
+    }
+
+    // Function to withdraw Ether from the contract safely
+    function safeWithdraw(uint256 amount) external {
+        // Check if the user has enough balance
+        require(balances[msg.sender] >= amount, "Insufficient balance");
+
+        // Update the balance using Solidity's built-in overflow checks
+        balances[msg.sender] -= amount;
+
+        // Transfer the amount to the sender
+        (bool success, ) = msg.sender.call{value: amount}("");
+        require(success, "Transfer failed");
+
+        emit Withdraw(msg.sender, amount);
+    }
+
+    // Fallback function to accept Ether
+    receive() external payable {}
+}
+
+	//1.	Overflow:
+	//•	An overflow occurs when an arithmetic operation exceeds the maximum limit of a data type, causing it to wrap around to a very low number. This can lead to unexpected behavior and vulnerabilities.
+	//•	In earlier versions of Solidity, arithmetic operations did not automatically check for overflow.
+	//2.	Fix:
+	//•	Solidity 0.8.0 and later versions have built-in overflow checks, which means arithmetic operations revert on overflow by default.
+	//•	In this example, the safeDeposit and safeWithdraw functions rely on these built-in overflow checks to ensure safety.
+	//•	Previously, developers used the SafeMath library from OpenZeppelin to handle these checks manually, but this is no longer necessary with the latest Solidity versions.
