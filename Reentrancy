@@ -1,0 +1,70 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+contract ReentrancyExample {
+    // This contract demonstrates the concept of reentrancy and how to mitigate it.
+
+    // Mapping to store balances of users
+    mapping(address => uint256) public balances;
+
+    // Event to log deposits
+    event Deposit(address indexed user, uint256 amount);
+
+    // Event to log withdrawals
+    event Withdraw(address indexed user, uint256 amount);
+
+    // Function to deposit Ether into the contract
+    function deposit() external payable {
+        // Update the balance of the sender
+        balances[msg.sender] += msg.value;
+        emit Deposit(msg.sender, msg.value);
+    }
+
+    // Function to withdraw Ether from the contract
+    // This function is vulnerable to reentrancy attacks
+    function withdraw(uint256 amount) external {
+        // Check if the user has enough balance
+        require(balances[msg.sender] >= amount, "Insufficient balance");
+
+        // Transfer the amount to the sender
+        // This external call can be exploited by reentrancy
+        (bool success, ) = msg.sender.call{value: amount}("");
+        require(success, "Transfer failed");
+
+        // Update the balance after transferring
+        balances[msg.sender] -= amount;
+
+        emit Withdraw(msg.sender, amount);
+    }
+
+    // Function to fix reentrancy using the checks-effects-interactions pattern
+    function safeWithdraw(uint256 amount) external {
+        // Check if the user has enough balance
+        require(balances[msg.sender] >= amount, "Insufficient balance");
+
+        // Update the balance before transferring to prevent reentrancy attacks
+        balances[msg.sender] -= amount;
+
+        // Transfer the amount to the sender
+        (bool success, ) = msg.sender.call{value: amount}("");
+        require(success, "Transfer failed");
+
+        emit Withdraw(msg.sender, amount);
+    }
+
+    // Fallback function to accept Ether
+    receive() external payable {}
+}
+//Reentrancy:
+
+//Reentrancy occurs when a contract calls an external contract before updating its state. The external contract can then recursively call back into the original contract before the initial execution is complete, leading to unexpected behavior and potential vulnerabilities.
+//In the withdraw function, the external call to msg.sender.call is made before updating the balance, making it vulnerable to reentrancy.
+//Fix:
+
+//The safeWithdraw function follows the checks-effects-interactions pattern to prevent reentrancy attacks.
+//The pattern involves:
+//Checks: Performing all necessary checks (e.g., require statements) at the beginning.
+//Effects: Updating the contract's state before making any external calls.
+//Interactions: Interacting with external contracts or addresses last, after the state has been updated.
+
+
