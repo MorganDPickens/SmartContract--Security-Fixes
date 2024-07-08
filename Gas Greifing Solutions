@@ -1,0 +1,68 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+contract GasGriefingExample {
+    // This contract demonstrates the concept of gas griefing and how to mitigate it.
+
+    // Mapping to store balances of users
+    mapping(address => uint256) public balances;
+
+    // Event to log deposits
+    event Deposit(address indexed user, uint256 amount);
+
+    // Event to log withdrawals
+    event Withdraw(address indexed user, uint256 amount);
+
+    // Function to deposit Ether into the contract
+    function deposit() external payable {
+        // Update the balance of the sender
+        balances[msg.sender] += msg.value;
+        emit Deposit(msg.sender, msg.value);
+    }
+
+    // Function to withdraw Ether from the contract
+    // This function is vulnerable to gas griefing
+    function withdraw(uint256 amount) external {
+        // Check if the user has enough balance
+        require(balances[msg.sender] >= amount, "Insufficient balance");
+
+        // Update the balance before transferring to prevent reentrancy attacks
+        balances[msg.sender] -= amount;
+
+        // Transfer the amount to the sender
+        // This line can be manipulated by gas griefing
+        // If the receiver is a contract and its fallback function uses all the gas,
+        // it can cause this transaction to fail.
+        (bool success, ) = msg.sender.call{value: amount}("");
+        require(success, "Transfer failed");
+
+        emit Withdraw(msg.sender, amount);
+    }
+
+    // Function to fix gas griefing
+    // By splitting the balance update and the Ether transfer into separate functions,
+    // we can avoid the problem.
+    function safeWithdraw(uint256 amount) external {
+        // Check if the user has enough balance
+        require(balances[msg.sender] >= amount, "Insufficient balance");
+
+        // Update the balance before transferring to prevent reentrancy attacks
+        balances[msg.sender] -= amount;
+
+        // Emit the withdraw event
+        emit Withdraw(msg.sender, amount);
+
+        // Transfer the amount to the sender in a separate function call
+        _transfer(msg.sender, amount);
+    }
+
+    // Internal function to transfer Ether
+    // This function ensures that the Ether transfer is handled separately
+    function _transfer(address recipient, uint256 amount) internal {
+        (bool success, ) = recipient.call{value: amount}("");
+        require(success, "Transfer failed");
+    }
+    
+    // Fallback function to accept Ether
+    receive() external payable {}
+}
