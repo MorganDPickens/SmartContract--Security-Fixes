@@ -1,0 +1,97 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+contract MetaTransactionExample {
+    // This contract demonstrates the concept of meta-transactions and how to implement them securely.
+
+    // Mapping to store balances of users
+    mapping(address => uint256) public balances;
+
+    // Mapping to store nonces for users to prevent replay attacks
+    mapping(address => uint256) public nonces;
+
+    // Event to log deposits
+    event Deposit(address indexed user, uint256 amount);
+
+    // Event to log withdrawals
+    event Withdraw(address indexed user, uint256 amount);
+
+    // Function to deposit Ether into the contract
+    function deposit() external payable {
+        // Update the balance of the sender
+        balances[msg.sender] += msg.value;
+        emit Deposit(msg.sender, msg.value);
+    }
+
+    // Function to execute a meta-transaction
+    function executeMetaTransaction(
+        address user,
+        uint256 amount,
+        uint256 nonce,
+        bytes memory signature
+    ) external {
+        // Ensure the nonce is correct to prevent replay attacks
+        require(nonces[user] == nonce, "Invalid nonce");
+
+        // Construct the message hash
+        bytes32 messageHash = keccak256(abi.encodePacked(user, amount, nonce, address(this)));
+
+        // Recover the signer address from the signature
+        address signer = recoverSigner(messageHash, signature);
+
+        // Ensure the signer is the user
+        require(signer == user, "Invalid signature");
+
+        // Check if the user has enough balance
+        require(balances[user] >= amount, "Insufficient balance");
+
+        // Increment the nonce to prevent replay attacks
+        nonces[user] += 1;
+
+        // Update the balance before transferring to prevent reentrancy attacks
+        balances[user] -= amount;
+
+        // Transfer the amount to the sender (executor of the meta-transaction)
+        (bool success, ) = msg.sender.call{value: amount}("");
+        require(success, "Transfer failed");
+
+        emit Withdraw(user, amount);
+    }
+
+    // Function to recover the signer address from the message hash and signature
+    function recoverSigner(bytes32 messageHash, bytes memory signature) public pure returns (address) {
+        // Split the signature into v, r, and s variables
+        require(signature.length == 65, "Invalid signature length");
+
+        bytes32 r;
+        bytes32 s;
+        uint8 v;
+
+        // Assembly code to extract r, s, and v from the signature
+        assembly {
+            r := mload(add(signature, 0x20))
+            s := mload(add(signature, 0x40))
+            v := byte(0, mload(add(signature, 0x60)))
+        }
+
+        // Return the recovered address
+        return ecrecover(messageHash, v, r, s);
+    }
+
+    // Function to get the current nonce for a user
+    function getNonce(address user) external view returns (uint256) {
+        return nonces[user];
+    }
+
+    // Fallback function to accept Ether
+    receive() external payable {}
+}
+//Meta-Transactions:
+
+//Meta-transactions allow users to delegate the gas payment to a third party. The user signs a message off-chain, and a relayer submits the transaction on-chain, paying the gas fee.
+//This example demonstrates how to implement meta-transactions securely.
+//Security Measures:
+
+//Nonces: Each user has a nonce that ensures the uniqueness of each meta-transaction, preventing replay attacks. The nonce is checked and incremented for each transaction.
+//Message Hash: The message to be signed includes the user address, amount, nonce, and the contract address to ensure uniqueness and security.
+//Signature Verification: The recoverSigner function recovers the signer address from the message hash and signature, ensuring that the signature is valid and belongs to the user.
