@@ -1,0 +1,84 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+interface IPriceFeed {
+    function getPrice() external view returns (uint256);
+}
+
+contract DepeggingMitigation {
+    // This contract demonstrates how to mitigate price manipulation (de-pegging) attacks using a price feed mechanism.
+
+    // Address of the trusted price feed contract
+    IPriceFeed public priceFeed;
+
+    // Mapping to store balances of users in the pegged token
+    mapping(address => uint256) public balances;
+
+    // Event to log deposits
+    event Deposit(address indexed user, uint256 amount);
+
+    // Event to log withdrawals
+    event Withdraw(address indexed user, uint256 amount, uint256 price);
+
+    // Constructor to set the price feed contract address
+    constructor(address _priceFeed) {
+        priceFeed = IPriceFeed(_priceFeed);
+    }
+
+    // Function to deposit Ether into the contract
+    function deposit() external payable {
+        // Update the balance of the sender based on the current price
+        uint256 price = priceFeed.getPrice();
+        require(price > 0, "Invalid price");
+
+        // Convert Ether to the pegged token units
+        uint256 amount = (msg.value * price) / 1 ether;
+        balances[msg.sender] += amount;
+
+        emit Deposit(msg.sender, amount);
+    }
+
+    // Function to withdraw the pegged token from the contract
+    function withdraw(uint256 tokenAmount) external {
+        // Check if the user has enough balance
+        require(balances[msg.sender] >= tokenAmount, "Insufficient balance");
+
+        // Get the current price from the price feed
+        uint256 price = priceFeed.getPrice();
+        require(price > 0, "Invalid price");
+
+        // Calculate the equivalent Ether amount
+        uint256 etherAmount = (tokenAmount * 1 ether) / price;
+
+        // Update the balance before transferring to prevent reentrancy attacks
+        balances[msg.sender] -= tokenAmount;
+
+        // Transfer the Ether amount to the sender
+        (bool success, ) = msg.sender.call{value: etherAmount}("");
+        require(success, "Transfer failed");
+
+        emit Withdraw(msg.sender, tokenAmount, price);
+    }
+
+    // Fallback function to accept Ether
+    receive() external payable {}
+}
+//Explanation:
+//De-pegging (Price Manipulation):
+
+//De-pegging refers to the manipulation of the price of an asset, causing it to deviate from its intended peg (e.g., a stablecoin losing its peg to a fiat currency).
+//This contract uses a trusted price feed to ensure that all transactions are executed at the correct price, mitigating the risk of price manipulation.
+//Price Feed:
+
+//The contract interacts with a trusted price feed contract (IPriceFeed) to get the current price of the pegged token.
+//The price feed should be a reliable source, such as a decentralized oracle, to prevent manipulation.
+//Security Measures:
+
+//Price Verification: Each deposit and withdrawal operation involves fetching the current price from the trusted price feed and verifying its validity.
+//Balance Updates: The user's balance is updated before any transfers to prevent reentrancy attacks.
+//Ether Conversion: Deposits and withdrawals are converted based on the current price, ensuring that users receive the correct amount of tokens or Ether.
+//Steps:
+
+//The deposit function allows users to deposit Ether, converting it to the pegged token units based on the current price from the price feed.
+//The withdraw function allows users to withdraw their tokens, converting the token amount to Ether based on the current price from the price feed.
+
