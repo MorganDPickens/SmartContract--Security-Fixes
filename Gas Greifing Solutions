@@ -66,3 +66,12 @@ contract GasGriefingExample {
     // Fallback function to accept Ether
     receive() external payable {}
 }
+//1.	Gas Griefing:
+	//•	Gas griefing occurs when a malicious contract or account intentionally consumes all the gas in a transaction, causing it to fail. This can happen when the receiving contract has a fallback function that uses a lot of gas.
+//	•	In the withdraw function, transferring Ether directly to msg.sender can be manipulated by gas griefing.
+//	2.	Fix:
+//	•	The fix involves splitting the balance update and the Ether transfer into separate steps.
+//	•	The safeWithdraw function updates the user’s balance first and emits an event.
+//	•	The _transfer function is called separately to handle the Ether transfer, ensuring that the balance update is not affected by gas griefing.
+
+//This approach ensures that even if the Ether transfer fails due to gas griefing, the user’s balance has already been updated, and they can attempt the transfer again without loss of funds.
