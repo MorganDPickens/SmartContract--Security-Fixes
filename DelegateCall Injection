@@ -1,0 +1,89 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+// Library contract with functions to be used via delegatecall
+contract Library {
+    // Mapping to store balances of users
+    mapping(address => uint256) public balances;
+
+    // Function to deposit Ether into the contract
+    function deposit() external payable {
+        balances[msg.sender] += msg.value;
+    }
+
+    // Function to withdraw Ether from the contract
+    function withdraw(uint256 amount) external {
+        require(balances[msg.sender] >= amount, "Insufficient balance");
+        balances[msg.sender] -= amount;
+        (bool success, ) = msg.sender.call{value: amount}("");
+        require(success, "Transfer failed");
+    }
+}
+
+// Main contract that uses delegatecall
+contract DelegatecallInjection {
+    // Address of the library contract
+    address public libraryAddress;
+
+    // Owner of the contract
+    address public owner;
+
+    // Mapping to store balances of users
+    mapping(address => uint256) public balances;
+
+    // Event to log deposits
+    event Deposit(address indexed user, uint256 amount);
+
+    // Event to log withdrawals
+    event Withdraw(address indexed user, uint256 amount);
+
+    // Constructor to set the library contract address
+    constructor(address _libraryAddress) {
+        libraryAddress = _libraryAddress;
+        owner = msg.sender;
+    }
+
+    // Function to delegate calls to the library contract
+    function delegate(bytes memory data) public {
+        (bool success, ) = libraryAddress.delegatecall(data);
+        require(success, "Delegatecall failed");
+    }
+
+    // Function to deposit Ether into the contract via delegatecall
+    function deposit() external payable {
+        bytes memory data = abi.encodeWithSignature("deposit()");
+        delegate(data);
+        emit Deposit(msg.sender, msg.value);
+    }
+
+    // Function to withdraw Ether from the contract via delegatecall
+    function withdraw(uint256 amount) external {
+        bytes memory data = abi.encodeWithSignature("withdraw(uint256)", amount);
+        delegate(data);
+        emit Withdraw(msg.sender, amount);
+    }
+
+    // Function to change the library address, restricted to the owner
+    function changeLibraryAddress(address _libraryAddress) external {
+        require(msg.sender == owner, "Only owner can change the library address");
+        libraryAddress = _libraryAddress;
+    }
+
+    // Fallback function to accept Ether
+    receive() external payable {}
+}
+
+//Delegatecall Injection:
+
+   // Delegatecall allows a contract to execute code from another contract (library) in the context of the calling contract. This means the called contract can modify the state of the calling contract.
+  //  A delegatecall injection attack occurs when an attacker is able to change the address of the library contract to a malicious contract that can manipulate the state of the calling contract.
+
+//Vulnerability:
+
+  //  In the DelegatecallInjection contract, the libraryAddress can be changed by the owner. If an attacker gains control over the owner's account, they can change the libraryAddress to a malicious contract.
+
+//Mitigation:
+
+   // Use the onlyOwner modifier to restrict functions that can change critical state variables like libraryAddress.
+    //Always validate inputs and restrict sensitive functions to authorized addresses only.
+
