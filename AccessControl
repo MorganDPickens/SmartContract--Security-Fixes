@@ -1,0 +1,101 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+contract AccessControl {
+    // This contract demonstrates how to mitigate access control issues.
+
+    // Owner of the contract
+    address public owner;
+
+    // Mapping to store balances of users
+    mapping(address => uint256) public balances;
+
+    // Event to log deposits
+    event Deposit(address indexed user, uint256 amount);
+
+    // Event to log withdrawals
+    event Withdraw(address indexed user, uint256 amount);
+
+    // Modifier to restrict access to the owner
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only owner can call this function");
+        _;
+    }
+
+    // Constructor to set the owner of the contract
+    constructor() {
+        owner = msg.sender;
+    }
+
+    // Function to deposit Ether into the contract
+    function deposit() external payable {
+        // Update the balance of the sender
+        balances[msg.sender] += msg.value;
+        emit Deposit(msg.sender, msg.value);
+    }
+
+    // Function to withdraw Ether from the contract
+    function withdraw(uint256 amount) external {
+        // Check if the user has enough balance
+        require(balances[msg.sender] >= amount, "Insufficient balance");
+
+        // Update the balance before transferring to prevent reentrancy attacks
+        balances[msg.sender] -= amount;
+
+        // Transfer the amount to the sender
+        (bool success, ) = msg.sender.call{value: amount}("");
+        require(success, "Transfer failed");
+
+        emit Withdraw(msg.sender, amount);
+    }
+
+    // Function to withdraw all Ether from the contract
+    // Restricted to the owner
+    function withdrawAll() external onlyOwner {
+        uint256 balance = address(this).balance;
+        require(balance > 0, "No funds to withdraw");
+
+        // Transfer the balance to the owner
+        (bool success, ) = owner.call{value: balance}("");
+        require(success, "Transfer failed");
+    }
+
+    // Function to change the owner of the contract
+    // Restricted to the owner
+    function changeOwner(address newOwner) external onlyOwner {
+        require(newOwner != address(0), "Invalid address");
+        owner = newOwner;
+    }
+
+    // Function to recover mistakenly sent tokens
+    // Restricted to the owner
+    function recoverTokens(address tokenAddress) external onlyOwner {
+        IERC20 token = IERC20(tokenAddress);
+        uint256 balance = token.balanceOf(address(this));
+        require(balance > 0, "No tokens to recover");
+        token.transfer(owner, balance);
+    }
+
+    // Fallback function to accept Ether
+    receive() external payable {}
+}
+
+interface IERC20 {
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+}
+
+//1.	Access Control Issues:
+	//•	Access control issues occur when 
+//functions are accessible to unauthorized users, potentially leading to misuse or exploitation.
+//	•	Proper access control ensures that only authorized users can execute sensitive functions.
+//	2.	Vulnerability:
+//	•	Without access control, anyone could call sensitive functions like withdrawing all funds, changing the owner, or recovering tokens.
+//	3.	Mitigation:
+//	•	Use the onlyOwner modifier to restrict access to sensitive functions, ensuring that only the contract owner can execute them.
+	//•	Implement a mechanism to change the contract owner securely.
+//	4.	Steps:
+//	•	The deposit and withdraw functions allow users to deposit and withdraw Ether from the contract.
+//	•	The withdrawAll function allows the owner to withdraw all Ether from the contract.
+//	•	The changeOwner function allows the owner to transfer ownership of the contract to a new owner.
+//	•	The recoverTokens function allows the owner to recover any ERvC20 tokens mistakenly sent to the contract.
