@@ -1,0 +1,105 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+contract TimestampDependence {
+    // This contract demonstrates how to mitigate timestamp dependence issues.
+
+    // Mapping to store balances of users
+    mapping(address => uint256) public balances;
+
+    // Event to log deposits
+    event Deposit(address indexed user, uint256 amount);
+
+    // Event to log withdrawals
+    event Withdraw(address indexed user, uint256 amount);
+
+    // Function to deposit Ether into the contract
+    function deposit() external payable {
+        // Update the balance of the sender
+        balances[msg.sender] += msg.value;
+        emit Deposit(msg.sender, msg.value);
+    }
+
+    // Vulnerable function to determine winner based on timestamp
+    // This function is vulnerable to timestamp manipulation by miners
+    function determineWinnerVulnerable() external view returns (address) {
+        // Assume users[0] and users[1] are participants
+        address user1 = address(0x123); // Placeholder address
+        address user2 = address(0x456); // Placeholder address
+
+        // Determine the winner based on whether the block timestamp is even or odd
+        if (block.timestamp % 2 == 0) {
+            return user1;
+        } else {
+            return user2;
+        }
+    }
+
+    // Secure function to determine winner using a more secure method
+    function determineWinnerSecure() external view returns (address) {
+        // Assume users[0] and users[1] are participants
+        address user1 = address(0x123); // Placeholder address
+        address user2 = address(0x456); // Placeholder address
+
+        // Use a more secure method such as block difficulty and blockhash
+        uint256 randomSeed = uint256(keccak256(abi.encodePacked(
+            block.difficulty,
+            block.timestamp,
+            blockhash(block.number - 1)
+        )));
+
+        // Determine the winner based on the random seed
+        if (randomSeed % 2 == 0) {
+            return user1;
+        } else {
+            return user2;
+        }
+    }
+
+    // Function to withdraw Ether from the contract
+    function withdraw(uint256 amount) external {
+        // Check if the user has enough balance
+        require(balances[msg.sender] >= amount, "Insufficient balance");
+
+        // Update the balance before transferring to prevent reentrancy attacks
+        balances[msg.sender] -= amount;
+
+        // Transfer the amount to the sender
+        (bool success, ) = msg.sender.call{value: amount}("");
+        require(success, "Transfer failed");
+
+        emit Withdraw(msg.sender, amount);
+    }
+
+    // Function to withdraw all Ether from the contract
+    function withdrawAll() external {
+        uint256 balance = balances[msg.sender];
+        require(balance > 0, "No funds to withdraw");
+
+        // Update the balance before transferring to prevent reentrancy attacks
+        balances[msg.sender] = 0;
+
+        // Transfer the balance to the sender
+        (bool success, ) = msg.sender.call{value: balance}("");
+        require(success, "Transfer failed");
+
+        emit Withdraw(msg.sender, balance);
+    }
+
+    // Fallback function to accept Ether
+    receive() external payable {}
+}
+
+//Timestamp Dependence:
+	//•	Relying on block timestamps for critical operations like determining randomness or time-based conditions can be manipulated by miners to some extent, as miners have control over the block timestamp within a certain range.
+//	2.	Vulnerability:
+//	•	The determineWinnerVulnerable function uses the block timestamp to decide the winner. Miners can manipulate the timestamp to influence the outcome.
+//	3.	Mitigation:
+//	•	Use more secure methods to generate randomness, such as combining multiple sources of entropy (e.g., block difficulty, blockhash) along with the block timestamp.
+//	•	The determineWinnerSecure function mitigates timestamp manipulation by using a combination of block.difficulty, block.timestamp, and blockhash to generate a random seed.
+//	4.	Steps:
+	//•	The deposit and withdraw functions allow users to deposit and withdraw Ether from the contract.
+//	•	The determineWinnerVulnerable function shows an example of how using block timestamps can be insecure.
+//	•	The determineWinnerSecure function uses a more secure method to determine the winner, reducing the risk of manipulation.
+
+
