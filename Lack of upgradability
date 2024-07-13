@@ -1,0 +1,71 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+contract ImplementationV1 {
+    // This contract demonstrates how to implement upgradable contracts.
+
+    // Owner of the contract
+    address public owner;
+
+    // Mapping to store balances of users
+    mapping(address => uint256) public balances;
+
+    // Event to log deposits
+    event Deposit(address indexed user, uint256 amount);
+
+    // Event to log withdrawals
+    event Withdraw(address indexed user, uint256 amount);
+
+    // Constructor to set the owner of the contract
+    constructor() {
+        owner = msg.sender;
+    }
+
+    // Function to deposit Ether into the contract
+    function deposit() external payable {
+        // Update the balance of the sender
+        balances[msg.sender] += msg.value;
+        emit Deposit(msg.sender, msg.value);
+    }
+
+    // Function to withdraw Ether from the contract
+    function withdraw(uint256 amount) external {
+        // Check if the user has enough balance
+        require(balances[msg.sender] >= amount, "Insufficient balance");
+
+        // Update the balance before transferring to prevent reentrancy attacks
+        balances[msg.sender] -= amount;
+
+        // Transfer the amount to the sender
+        (bool success, ) = msg.sender.call{value: amount}("");
+        require(success, "Transfer failed");
+
+        emit Withdraw(msg.sender, amount);
+    }
+
+    // Function to change the owner of the contract
+    function changeOwner(address newOwner) external {
+        require(msg.sender == owner, "Only owner can change the owner");
+        owner = newOwner;
+    }
+
+    // Fallback function to accept Ether
+    receive() external payable {}
+}
+
+//1.	Lack of Upgradability:
+//	•	Smart contracts deployed on the blockchain are immutable, meaning their code cannot be changed after deployment. This poses a problem when bugs are discovered or when the contract needs new features.
+//	2.	Upgradable Contracts:
+//	•	The proxy pattern allows a contract to delegate calls to another contract (the implementation contract). The proxy contract’s address remains the same, but it can delegate calls to different implementation contracts over time.
+//	3.	Proxy Contract:
+//	•	The Proxy contract contains a reference to the current implementation contract.
+	//•	The upgradeTo function allows the owner to update the implementation address, effectively upgrading the contract.
+//	•	The fallback function delegates all calls to the current implementation contract using delegatecall.
+//	4.	Implementation Contract:
+//	•	The ImplementationV1 contract contains the actual logic of the contract (e.g., deposit, withdraw, changeOwner).
+//	•	The implementation contract can be upgraded by deploying a new version of it and updating the proxy contract’s implementation address.
+//	5.	Steps:
+//	•	Deploy the ImplementationV1 contract.
+//	•	Deploy the Proxy contract with the address of ImplementationV1.
+	//•	Interact with the proxy contract to perform operations like deposit, withdraw, and changeOwner.
+//	•	To upgrade, deploy a new implementation contract (e.g., ImplementationV2) and call upgradeTo on the proxy contract with the new implementation address.
