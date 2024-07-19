@@ -1,0 +1,109 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+contract UnintendedEtherReception {
+    // This contract demonstrates the risk of unintended Ether reception without proper handling.
+
+    // State variable to store balance
+    uint256 public balance;
+
+    // Function to deposit Ether into the contract
+    function deposit() external payable {
+        balance += msg.value;
+    }
+
+    // Function to withdraw Ether from the contract
+    function withdraw(uint256 amount) external {
+        require(balance >= amount, "Insufficient balance");
+        balance -= amount;
+        payable(msg.sender).transfer(amount);
+    }
+}
+
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+contract SecureEtherReception {
+    // This contract demonstrates how to properly handle unintended Ether reception.
+
+    // Owner of the contract with explicit visibility
+    address public owner;
+
+    // Constructor to set the owner of the contract
+    constructor() {
+        owner = msg.sender;
+    }
+
+    // Modifier to restrict access to the owner
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only owner can call this function");
+        _;
+    }
+
+    // Function to deposit Ether into the contract with explicit visibility
+    function deposit() external payable {
+        // Emit an event for deposits
+        emit Deposit(msg.sender, msg.value);
+    }
+
+    // Function to withdraw Ether from the contract with explicit visibility
+    function withdraw(uint256 amount) external onlyOwner {
+        require(address(this).balance >= amount, "Insufficient balance");
+        payable(msg.sender).transfer(amount);
+        emit Withdraw(msg.sender, amount);
+    }
+
+    // Function to withdraw all Ether from the contract with explicit visibility
+    function withdrawAll() external onlyOwner {
+        uint256 balance = address(this).balance;
+        require(balance > 0, "No funds to withdraw");
+        payable(msg.sender).transfer(balance);
+        emit Withdraw(msg.sender, balance);
+    }
+
+    // Function to get the contract balance with explicit visibility
+    function getBalance() external view returns (uint256) {
+        return address(this).balance;
+    }
+
+    // Function to change the owner of the contract with explicit visibility
+    function changeOwner(address newOwner) external onlyOwner {
+        require(newOwner != address(0), "Invalid address");
+        owner = newOwner;
+    }
+
+    // Fallback function to accept Ether and log reception
+    receive() external payable {
+        emit Deposit(msg.sender, msg.value);
+    }
+
+    // Fallback function to handle unexpected calls
+    fallback() external payable {
+        emit Deposit(msg.sender, msg.value);
+    }
+
+    // Events to log deposits and withdrawals
+    event Deposit(address indexed user, uint256 amount);
+    event Withdraw(address indexed user, uint256 amount);
+}
+Explanation:
+
+    Unintended Ether Reception:
+        Contracts can inadvertently receive Ether without proper handling. If a contract does not have fallback functions or proper balance management, this can lead to a loss of funds or inability to track received Ether.
+
+    Vulnerability:
+        In the UnintendedEtherReception contract, there is no fallback function to handle Ether sent directly to the contract, which could lead to loss of funds if the contract is not designed to handle such cases.
+
+    Mitigation:
+        Implement fallback functions (receive and fallback) to properly handle incoming Ether.
+        Use events to log deposits and withdrawals for better tracking.
+        Implement proper balance management to ensure that funds can be safely deposited and withdrawn.
+
+    Steps:
+        The SecureEtherReception contract defines an owner and uses the onlyOwner modifier to protect critical functions.
+        The deposit function allows users to deposit Ether into the contract, with an event logged for each deposit.
+        The withdraw and withdrawAll functions allow the owner to withdraw Ether from the contract, with proper checks for sufficient balance and events logged for each withdrawal.
+        The getBalance function allows anyone to check the contract's balance.
+        The changeOwner function allows the owner to transfer ownership to a new address securely.
+        The receive and fallback functions handle any Ether sent directly to the contract, ensuring that all Ether received is logged and managed properly.
+
