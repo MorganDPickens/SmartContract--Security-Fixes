@@ -1,0 +1,113 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+interface IExternalContract {
+    function getBalance(address user) external view returns (uint256);
+    function transfer(address to, uint256 amount) external;
+}
+
+contract DependencyVulnerable {
+    // This contract demonstrates the risk of relying on external contracts without validation.
+
+    // External contract address
+    IExternalContract public externalContract;
+
+    // Constructor to set the external contract address
+    constructor(address _externalContract) {
+        externalContract = IExternalContract(_externalContract);
+    }
+
+    // Function to deposit Ether into the contract
+    function deposit() external payable {
+        // No balance tracking in this example, as it's reliant on the external contract
+    }
+
+    // Function to withdraw Ether from the external contract
+    function withdraw(uint256 amount) external {
+        uint256 balance = externalContract.getBalance(msg.sender);
+        require(balance >= amount, "Insufficient balance");
+        externalContract.transfer(msg.sender, amount);
+    }
+
+    // Fallback function to accept Ether
+    receive() external payable {}
+}
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+interface IExternalContract {
+    function getBalance(address user) external view returns (uint256);
+    function transfer(address to, uint256 amount) external;
+}
+
+contract DependencyManaged {
+    // This contract demonstrates how to manage external dependencies securely.
+
+    // Owner of the contract
+    address public owner;
+
+    // External contract address with explicit visibility
+    IExternalContract public externalContract;
+
+    // Constructor to set the owner and external contract address
+    constructor(address _externalContract) {
+        owner = msg.sender;
+        externalContract = IExternalContract(_externalContract);
+    }
+
+    // Modifier to restrict access to the owner
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only owner can call this function");
+        _;
+    }
+
+    // Function to update the external contract address with explicit visibility
+    function updateExternalContract(address _externalContract) external onlyOwner {
+        require(_externalContract != address(0), "Invalid address");
+        externalContract = IExternalContract(_externalContract);
+    }
+
+    // Function to deposit Ether into the contract
+    function deposit() external payable {
+        // Emit an event for deposits
+        emit Deposit(msg.sender, msg.value);
+    }
+
+    // Function to withdraw Ether from the external contract
+    function withdraw(uint256 amount) external {
+        uint256 balance = externalContract.getBalance(msg.sender);
+        require(balance >= amount, "Insufficient balance");
+        externalContract.transfer(msg.sender, amount);
+        emit Withdraw(msg.sender, amount);
+    }
+
+    // Fallback function to accept Ether and log reception
+    receive() external payable {
+        emit Deposit(msg.sender, msg.value);
+    }
+
+    // Events to log deposits and withdrawals
+    event Deposit(address indexed user, uint256 amount);
+    event Withdraw(address indexed user, uint256 amount);
+}
+//Dependency Issues:
+
+   // Reliance on external contracts without proper validation can introduce vulnerabilities, especially if the external contract's behavior or address changes unexpectedly.
+
+//Vulnerability:
+
+   // In the DependencyVulnerable contract, the external contract address is set at deployment and not validated or updatable. If the external contract becomes malicious or is replaced, it can lead to unintended behavior and potential loss of funds.
+
+//Mitigation:
+
+  //  Manage external dependencies carefully by allowing updates to the external contract address only by the contract owner.
+ //   Validate inputs and ensure the external contract address is not zero.
+//   Use events to log critical operations such as deposits and withdrawals.
+
+//Steps:
+
+   // The DependencyManaged contract defines an owner and uses the onlyOwner modifier to restrict access to critical functions.
+  //  The updateExternalContract function allows the owner to update the external contract address securely.
+  //  The deposit function allows users to deposit Ether into the contract, with an event logged for each deposit.
+ //   The withdraw function allows users to withdraw Ether from the external contract, with proper balance checks and events logged for each withdrawal.
+ //   The receive function handles any Ether sent directly to the contract, ensuring all Ether received is logged.
