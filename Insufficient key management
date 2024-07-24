@@ -1,0 +1,84 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+contract InsufficientKeyManagement {
+    // This contract demonstrates the risk of insufficient key management.
+
+    // Owner of the contract
+    address public owner;
+
+    // Constructor to set the owner of the contract
+    constructor() {
+        owner = msg.sender;
+    }
+
+    // Function to update the owner, potentially insecure
+    function updateOwner(address newOwner) public {
+        owner = newOwner;
+    }
+
+    // Function to perform a sensitive action, without access control
+    function sensitiveAction() public {
+        // Some sensitive logic here
+    }
+
+    // Fallback function to accept Ether
+    receive() external payable {}
+}
+
+
+//vs correct key management
+
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+contract SecureKeyManagement {
+    // This contract demonstrates proper key management and access control.
+
+    // Owner of the contract with explicit visibility
+    address public owner;
+
+    // Event to log owner changes
+    event OwnerChanged(address indexed oldOwner, address indexed newOwner);
+
+    // Modifier to restrict access to the owner
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only owner can call this function");
+        _;
+    }
+
+    // Constructor to set the owner of the contract
+    constructor() {
+        owner = msg.sender;
+        emit OwnerChanged(address(0), msg.sender);
+    }
+
+    // Function to update the owner, restricted to the current owner
+    function updateOwner(address newOwner) external onlyOwner {
+        require(newOwner != address(0), "Invalid address");
+        emit OwnerChanged(owner, newOwner);
+        owner = newOwner;
+    }
+
+    // Function to perform a sensitive action, restricted to the owner
+    function sensitiveAction() external onlyOwner {
+        // Some sensitive logic here
+    }
+
+    // Fallback function to accept Ether
+    receive() external payable {}
+}
+
+//1.	Insufficient Key Management:
+//	•	Poor management of private keys used for deploying and managing contracts can lead to unauthorized access or loss of control over the contract. This includes keys being compromised, not properly secured, or not having proper access control mechanisms in place.
+//	2.	Vulnerability:
+//	•	In the InsufficientKeyManagement contract, the updateOwner function can be called by anyone, potentially allowing an unauthorized party to take control of the contract. Additionally, there is no restriction on who can perform the sensitiveAction, making it insecure.
+//	3.	Mitigation:
+//	•	Implement strict access control measures to ensure that only authorized individuals can manage critical functions such as changing the owner or performing sensitive actions.
+	//•	Use a modifier like onlyOwner to restrict access to sensitive functions.
+//	•	Properly manage and secure the private keys associated with the contract’s owner account. This includes using secure storage solutions, multi-signature wallets, and regular audits.
+//	4.	Steps:
+//	•	The SecureKeyManagement contract defines an owner and uses the onlyOwner modifier to restrict access to critical functions.
+//	•	The updateOwner function allows the owner to update the owner address securely, with checks to ensure the new address is valid. It also emits an event for transparency.
+//	•	The sensitiveAction function is restricted to the owner, ensuring that only the authorized individual can perform sensitive actions.
+//	•	The receive function is a fallback function to accept Ether.
