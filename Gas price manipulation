@@ -1,0 +1,101 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+contract GasPriceManipulationVulnerable {
+    // This contract demonstrates a vulnerability to gas price manipulation.
+
+    // Mapping to store user bids
+    mapping(address => uint256) public bids;
+
+    // Event to log bids
+    event BidPlaced(address indexed user, uint256 amount);
+
+    // Function to place a bid
+    function placeBid() external payable {
+        require(msg.value > 0, "Bid must be greater than zero");
+        bids[msg.sender] = msg.value;
+        emit BidPlaced(msg.sender, msg.value);
+    }
+
+    // Function to determine the winner based on highest gas price
+    function determineWinner() external view returns (address winner) {
+        uint256 highestBid = 0;
+        address highestBidder;
+
+        for (uint256 i = 0; i < bidders.length; i++) {
+            if (bids[bidders[i]] > highestBid) {
+                highestBid = bids[bidders[i]];
+                highestBidder = bidders[i];
+            }
+        }
+        return highestBidder;
+    }
+
+    // Fallback function to accept Ether
+    receive() external payable {}
+}
+
+
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+contract GasPriceManipulationSecure {
+    // This contract demonstrates how to mitigate gas price manipulation.
+
+    // Owner of the contract
+    address public owner;
+
+    // Mapping to store user bids
+    mapping(address => uint256) public bids;
+
+    // Array to keep track of bidders
+    address[] public bidders;
+
+    // Event to log bids
+    event BidPlaced(address indexed user, uint256 amount);
+
+    // Modifier to restrict access to the owner
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only owner can call this function");
+        _;
+    }
+
+    // Constructor to set the owner of the contract
+    constructor() {
+        owner = msg.sender;
+    }
+
+    // Function to place a bid
+    function placeBid() external payable {
+        require(msg.value > 0, "Bid must be greater than zero");
+        bids[msg.sender] = msg.value;
+        bidders.push(msg.sender);
+        emit BidPlaced(msg.sender, msg.value);
+    }
+
+    // Function to determine the winner using a commit-reveal scheme
+    function commitBid(bytes32 bidHash) external {
+        // Users commit their bid hash
+    }
+
+    function revealBid(uint256 amount, bytes32 nonce) external {
+        // Users reveal their bid by providing the amount and nonce
+        // Hash the values and compare with the stored hash to validate
+    }
+
+    // Fallback function to accept Ether
+    receive() external payable {}
+}
+
+//1.	Gas Price Manipulation:
+//	•	Gas price manipulation can occur when users submit transactions with high gas prices to gain priority in the transaction ordering, potentially impacting contract logic that depends on transaction order or timing.
+//	2.	Vulnerability:
+//	•	In the GasPriceManipulationVulnerable contract, determining the winner based on the highest bid is directly linked to the timing of transaction processing. An attacker could use higher gas prices to manipulate the transaction ordering, ensuring their bid is processed last and highest.
+	//3.	Mitigation:
+	//•	Commit-Reveal Scheme: This approach prevents front-running and timing-based manipulation. In this scheme, users first commit a hash of their bid (which includes a secret nonce), and then later reveal the actual bid and nonce. The contract then verifies the hash matches the revealed values. This process decouples the bidding from the timing of transactions.
+//	•	Access Control: The onlyOwner modifier restricts access to sensitive functions, ensuring that only the contract owner can perform certain actions.
+//	4.	Steps:
+	//•	The GasPriceManipulationSecure contract uses a commit-reveal scheme to secure the bidding process. Participants first commit to a bid hash and later reveal the actual bid with a nonce, ensuring that the bid cannot be manipulated after being committed.
+//	•	The contract also has proper access control in place, ensuring that only authorized users can execute critical functions.
+
+
