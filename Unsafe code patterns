@@ -1,0 +1,81 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+contract UnsafeCodePatterns {
+    // This contract demonstrates unsafe code patterns.
+
+    // Owner of the contract
+    address public owner;
+
+    // Constructor to set the owner of the contract
+    constructor() {
+        owner = tx.origin;
+    }
+
+    // Function to perform a sensitive action, using tx.origin for authorization
+    function sensitiveAction() external {
+        require(tx.origin == owner, "Only owner can call this function");
+        // Sensitive logic here
+    }
+
+    // Function to generate a random number using blockhash
+    function random() external view returns (uint256) {
+        return uint256(blockhash(block.number - 1));
+    }
+
+    // Fallback function to accept Ether
+    receive() external payable {}
+}
+
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+contract SafeCodePatterns {
+    // This contract demonstrates secure coding practices.
+
+    // Owner of the contract
+    address public owner;
+
+    // Modifier to restrict access to the owner
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only owner can call this function");
+        _;
+    }
+
+    // Constructor to set the owner of the contract
+    constructor() {
+        owner = msg.sender;
+    }
+
+    // Function to perform a sensitive action, using msg.sender for authorization
+    function sensitiveAction() external onlyOwner {
+        // Sensitive logic here
+    }
+
+    // Function to generate a random number using a more secure method
+    function random() external view returns (uint256) {
+        // Using keccak256 with block.difficulty and block.timestamp for randomness
+        return uint256(keccak256(abi.encodePacked(block.difficulty, block.timestamp)));
+    }
+
+    // Function to update the owner, restricted to the current owner
+    function updateOwner(address newOwner) external onlyOwner {
+        require(newOwner != address(0), "Invalid address");
+        owner = newOwner;
+    }
+
+    // Fallback function to accept Ether
+    receive() external payable {}
+}
+
+//1.	Unsafe Code Patterns:
+//	•	Using tx.origin for Authorization: This pattern is unsafe because tx.origin represents the original external account that initiated the transaction. It can be exploited by phishing attacks where an attacker tricks a user into sending a transaction through their contract, thereby bypassing the intended security checks.
+	//•	Using blockhash for Randomness: blockhash can only access hashes for the last 256 blocks, and miners can influence the blockhash to some extent, making it unreliable for generating secure randomness.
+//	2.	Vulnerability:
+//	•	In the UnsafeCodePatterns contract, the use of tx.origin for authorization checks can be exploited by attackers through phishing attacks. The use of blockhash for randomness is also insecure as it can be influenced by 	3.	Mitigation:
+//	•	Using msg.sender: Always use msg.sender for authorization checks. It represents the immediate sender of the message (transaction or call), providing a reliable means of checking the caller’s identity.
+//	•	Generating Secure Randomness: Use more secure methods for randomness, such as combining block.difficulty, block.timestamp, and other sources of entropy. Note that achieving true randomness on-chain is challenging, and for critical applications, consider using off-chain randomness solutions like Chainlink VRF (Verifiable Random Function).
+//	4.	Steps:
+//	•	The SafeCodePatterns contract defines an owner and uses the onlyOwner modifier to restrict access to critical functions, ensuring that only the authorized user can execute sensitive actions.
+//	•	The random function uses a more secure method to generate randomness, though still not perfectly secure. For mission-critical randomness, an off-chain solution should be considered.
+	//•	The updateOwner function securely updates the owner, with proper input validation and access control.
