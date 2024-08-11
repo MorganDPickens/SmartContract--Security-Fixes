@@ -1,0 +1,45 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+contract VulnerableCrossChainBridge {
+    address public admin;
+    mapping(address => uint256) public balances;
+
+    event Deposit(address indexed user, uint256 amount, string destinationChain);
+    event Withdraw(address indexed user, uint256 amount);
+
+    constructor() {
+        admin = msg.sender;
+    }
+
+    function deposit(uint256 amount, string memory destinationChain) external {
+        require(amount > 0, "Amount must be greater than zero");
+        balances[msg.sender] += amount;
+        emit Deposit(msg.sender, amount, destinationChain);
+    }
+
+    function withdraw(uint256 amount) external {
+        require(amount <= balances[msg.sender], "Insufficient balance");
+        balances[msg.sender] -= amount;
+        payable(msg.sender).transfer(amount);
+        emit Withdraw(msg.sender, amount);
+    }
+
+    // Vulnerable function: anyone can call this function and drain funds
+    function executeCrossChainTransfer(
+        address user, 
+        uint256 amount, 
+        string memory sourceChain
+    ) external {
+        require(amount <= balances[user], "Insufficient balance");
+        balances[user] -= amount;
+        // Assuming successful transfer to another chain
+    }
+}
+
+	1.	Authorization (onlyAdmin Modifier):
+	•	The onlyAdmin modifier ensures that only the admin can call the executeCrossChainTransfer function, preventing unauthorized users from initiating cross-chain transfers.
+	2.	Transfer ID (Nonce) Checking:
+	•	The contract uses a transferId (a unique identifier or nonce for each transfer) and stores executed transfer IDs in a mapping. This prevents replay attacks by ensuring that the same transfer cannot be executed multiple times.
+	3.	Secure Oracle Usage:
+	•	While not implemented in this simple example, in a real-world scenario, the cross-chain transfer logic should involve a secure oracle system to verify the legitimacy of the transfer request.
